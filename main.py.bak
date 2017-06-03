@@ -7,7 +7,7 @@ kivy.require('1.9.0')
 import threading
 import time
 from datetime import datetime
-import urllib.request, urllib.error, urllib.parse
+import urllib2
 import json
 import operator
 import gc
@@ -43,10 +43,6 @@ from kivy.uix.behaviors import FocusBehavior
 from kivy.uix.popup import Popup
 from kivy.clock import Clock, mainthread
 from kivy.uix.dropdown import DropDown
-
-import codecs
-
-codecs_reader = codecs.getreader("utf-8")
 
 # Set WorldBank API static parameters.
 start_url = "http://api.worldbank.org/"
@@ -204,7 +200,7 @@ class IndexSelection(MouseScreen):
         # If there is no active Indicator data download..
         if not self.is_index_creation.btn_get_indicators.disabled:
             # Compare my_indicators to sorted_indicators so we know if we must re-download data.
-            my_in = list(self.selected_indices["my_indicators"].keys())
+            my_in = self.selected_indices["my_indicators"].keys()
             my_in.sort()
 
             # If lists are the same..
@@ -216,17 +212,17 @@ class IndexSelection(MouseScreen):
     # Recursively convert Unicode objects to strings objects.
     def string_it(self, obj):
         if isinstance(obj, dict):
-            return {self.string_it(key): self.string_it(value) for key, value in obj.items()}
+            return {self.string_it(key): self.string_it(value) for key, value in obj.iteritems()}
         elif isinstance(obj, list):
             return [self.string_it(element) for element in obj]
-        elif isinstance(obj, str):
+        elif isinstance(obj, unicode):
             return obj.encode('utf-8')
         else:
-            return obj;
+            return obj
 
     # Function that will run every time mouse is moved.
     def on_mouse_pos(self, *args):
-        for button in list(self.topics_dic.keys()):
+        for button in self.topics_dic.keys():
             if button.collide_point(*button.to_widget(*args[1])):
                 button.background_normal = './Sources/button_hovered.png'
             else:
@@ -366,9 +362,9 @@ class IndexSelection(MouseScreen):
     # This function sets proper background_normal of index buttons.
     def btn_index_background(self):
         # For each index button..
-        for btn in list(IndexSelection.shown_ind_btns.values()):
+        for btn in IndexSelection.shown_ind_btns.values():
             # search if it is in my_indicators.
-            if btn.text in list(self.selected_indices["my_indicators"].keys()):
+            if btn.text in self.selected_indices["my_indicators"].keys():
                 btn.background_normal = './Sources/grey_btn_down.png'
                 btn.bold = True
             else:
@@ -463,9 +459,8 @@ class IndexSelection(MouseScreen):
 
             # Checks if there is a coreDB available.
             try:
-                set_stored_coredb = open("./DB/core.db", "r", encoding="utf-8")
-                json_loaded = json.load(set_stored_coredb);
-                self.coredb_py = json_loaded
+                set_stored_coredb = open("./DB/core.db", "r")
+                self.coredb_py = self.string_it(json.load(set_stored_coredb))
                 set_stored_coredb.close()
 
                 # There is no topic at the beginning.
@@ -538,7 +533,7 @@ class IndexSelection(MouseScreen):
 
             # Something really unexpected just happened.
             except Exception as e:
-                print("def build_indices(self):", type(e), e.__doc__, e.message)
+                print "def build_indices(self):", type(e), e.__doc__, e.message
 
     def add_topic(self, *args):
         # If topic button is pressed, create index buttons.
@@ -546,7 +541,7 @@ class IndexSelection(MouseScreen):
 
             self.clear_indices_stack()
             # Switch topic buttons states.
-            for button in list(self.topics_dic.keys()):
+            for button in self.topics_dic.keys():
                 if button.state == "down" and (button != args[0]):
                     button.state = "normal"
 
@@ -641,10 +636,10 @@ class IndexCreation(MouseScreen):
     # Recursively convert Unicode objects to strings objects.
     def string_it(self, obj):
         if isinstance(obj, dict):
-            return {self.string_it(key): self.string_it(value) for key, value in obj.items()}
+            return {self.string_it(key): self.string_it(value) for key, value in obj.iteritems()}
         elif isinstance(obj, list):
             return [self.string_it(element) for element in obj]
-        elif isinstance(obj, str):
+        elif isinstance(obj, unicode):
             return obj.encode('utf-8')
         else:
             return obj
@@ -839,7 +834,7 @@ class IndexCreation(MouseScreen):
         connections = []
 
         # Sort keys for the ID sequence.
-        self.sorted_indicators = list(mi.keys())
+        self.sorted_indicators = mi.keys()
         self.sorted_indicators.sort()
 
         # Number of my indicators.
@@ -918,14 +913,13 @@ class IndexCreation(MouseScreen):
                 # print indicator_address # To print the web url
 
                 # Define World Bank connection (JSON data).
-                ind_data_connection = urllib.request.urlopen(indicator_address, timeout=120)
+                ind_data_connection = urllib2.urlopen(indicator_address, timeout=120)
 
                 # Add current connection to the list with all connections.
                 connections.append(ind_data_connection)
 
                 # Convert JSON data into temp python structure.
-                ind_data_json = ind_data_connection.read().decode('utf-8')
-                ind_data_py = json.loads(ind_data_json)
+                ind_data_py = self.string_it(json.load(ind_data_connection))
 
                 # This list will store all years with data for each short_id (model indicator).
                 year_list = []
@@ -937,9 +931,8 @@ class IndexCreation(MouseScreen):
                     value = ind_data_py[1][record]["value"]
 
                     if value:
-                        if country in self.all_indicators_data[short_id]:
-                            self.all_indicators_data[short_id][country][year] = value
-                            year_list.append(year)
+                        self.all_indicators_data[short_id][country][year] = value
+                        year_list.append(year)
 
                 # If year list is not an empty list..
                 if year_list:
@@ -959,7 +952,7 @@ class IndexCreation(MouseScreen):
                 for country in self.all_indicators_data[short_id]:
                     sum_value = 0
                     available_years = 0
-                    for year, value in self.all_indicators_data[short_id][country].items():
+                    for year, value in self.all_indicators_data[short_id][country].iteritems():
                         if value:
                             sum_value += float(value)
                             available_years += 1
@@ -1008,7 +1001,7 @@ class IndexCreation(MouseScreen):
 
             # Something really unexpected just happened.
             except Exception as e:
-                print("def get_indicators(self, *args):", type(e), e.__doc__, e.message)
+                print "def get_indicators(self, *args):", type(e), e.__doc__, e.message
 
         # On every data reload, we also recalculate available years in series_selection_screen.
         self.generate_year_buttons()
@@ -1029,8 +1022,8 @@ class IndexCreation(MouseScreen):
             self.all_indicators_data["table_desc"] = sh_id
 
             # Set year range.
-            rng = list(range(int(self.all_indicators_data["LastFirst_"+sh_id][0]),
-                        int(self.all_indicators_data["LastFirst_"+sh_id][1]+1)))
+            rng = range(int(self.all_indicators_data["LastFirst_"+sh_id][0]),
+                        int(self.all_indicators_data["LastFirst_"+sh_id][1]+1))
 
             # Create first row list (ID & Years).
             self.year_row = ["top_left_cell"]
@@ -1250,7 +1243,7 @@ class IndexCreation(MouseScreen):
 
             self.country_selection_sm.get_screen(args[0]).add_widget(country_slider)
 
-            for key, val in self.country_dict.items():
+            for key, val in self.country_dict.iteritems():
                 if args[0] == val[1]:
                     country_name = Factory.CountryName(text=key)
                     country_id = Factory.CountryCode(text=val[0])
@@ -1318,7 +1311,7 @@ class IndexCreation(MouseScreen):
         self.loaded_years = []
 
         min_y, max_y = 1960, 2015
-        d = [item for k, v in list(self.all_indicators_data.items()) if 'LastFirst_' in k for item in v]
+        d = [item for k, v in self.all_indicators_data.items() if 'LastFirst_' in k for item in v]
 
         # Check if there is at least one year with data.
         if d:
@@ -1384,7 +1377,7 @@ class IndexCreation(MouseScreen):
     # Check if we have selected at least one Year and one Region.
     def check_if_ry(self, *args):
         c = 0
-        for keylist in list(self.loaded_regions.values()):
+        for keylist in self.loaded_regions.values():
             for item in keylist:
                 if item.state == "down":
                     c = 1
@@ -1407,7 +1400,7 @@ class IndexCreation(MouseScreen):
 
         indicator = [self.id_conn[i] for i in self.sorted_indicators]
         regions = sorted(
-            [i.text for j in list(self.loaded_regions.values()) for i in j if i.state == "down"])
+            [i.text for j in self.loaded_regions.values() for i in j if i.state == "down"])
         years = sorted([i.text for i in self.loaded_years if i.state == "down"])
 
         # Set the default values.
@@ -1746,15 +1739,15 @@ class IndexCreation(MouseScreen):
                 # Cleanup markup code Indicator Variables.
                 if iv[:17] == "[color=000000][b]":
                     # LvL 1 replacement.
-                    for key, var in rep1.items():
+                    for key, var in rep1.iteritems():
                         iv = iv.replace(key, var)
                     # LvL 2 replacement.
-                    for key, var in rep2.items():
+                    for key, var in rep2.iteritems():
                         iv = iv.replace(key, var)
 
                 # Cleanup markup code from function Names.
                 elif iv[:17] == "[color=f44336][i]":
-                    for key, var in rep3.items():
+                    for key, var in rep3.iteritems():
                         iv = iv.replace(key, var)
 
                 else:
@@ -1767,7 +1760,7 @@ class IndexCreation(MouseScreen):
 
                     # Something really unexpected just happened.
                     except Exception as nfe:
-                        print("def exec_formula(self):", type(nfe), nfe.__doc__, nfe.message)
+                        print "def exec_formula(self):", type(nfe), nfe.__doc__, nfe.message
 
                 formula.append(iv)
 
@@ -1782,7 +1775,7 @@ class IndexCreation(MouseScreen):
             with open(filename[0], "w") as log_file:
 
                 log_file.write("Indicator Variables\n===========================\n")
-                for key, val in self.rev_id_conn.items():
+                for key, val in self.rev_id_conn.iteritems():
                     log_file.write(val+" = "+key+"\n")
                 log_file.write("===========================\n\nComposite Index Formula"
                                "\n===========================\nCI('Region','Year'): [")
@@ -1836,7 +1829,7 @@ class IndexCreation(MouseScreen):
         # If error dict is not empty, a problem has occurred.
         if e != {}:
             self.popuper("Could not prepare files properly:\n" +
-                         str([k + " >> " + v.__doc__ for k, v in e.items()]) +
+                         str([k + " >> " + v.__doc__ for k, v in e.iteritems()]) +
                          "\n\nMake sure file/s above are not already opened"
                          "\nand you have permission to write"
                          "\nto the selected folder!",
@@ -1864,7 +1857,7 @@ class IndexCreation(MouseScreen):
 
         # Something really unexpected just happened.
         except Exception as e:
-            print("def indicator_var_eval(self, ind, reg, year):", type(e), e.__doc__, e.message)
+            print "def indicator_var_eval(self, ind, reg, year):", type(e), e.__doc__, e.message
 
     # This function prepares the Thematic Designer Screen.
     def prepare_thematic(self):
@@ -1981,11 +1974,11 @@ class MapDesigner(MouseScreen):
             interval_v = range_v/float(n)
 
             # If we have only one interval, use current min and max values.
-            if n == 1 or len(list(data_set.values())) == 1:
+            if n == 1 or len(data_set.values()) == 1:
                 classification = [(min_v, max_v)]
 
                 # If we selected more than one intervals for a single value, pop a notice msg.
-                if len(list(data_set.values())) == 1 and n != 1:
+                if len(data_set.values()) == 1 and n != 1:
                     self.popuper("Only one class was generated,\n"
                                  "because only one value was found\n"
                                  "in Data Table!",
@@ -2008,7 +2001,7 @@ class MapDesigner(MouseScreen):
             self.build_legend(classification, color_dict['r'], color_dict['g'], color_dict['b'])
 
             # Replace data value with the equivalent color.
-            for k, v in data_set.items():
+            for k, v in data_set.iteritems():
                 for g in range(len(classification)):
                     if classification[g][0] <= v <= classification[g][1]:
                         break
@@ -2070,14 +2063,14 @@ class MapDesigner(MouseScreen):
 
         # Something really unexpected just happened.
         except Exception as e:
-            print("def prepare_svg(d_set):", type(e), e.__doc__, e.message)
+            print "def prepare_svg(d_set):", type(e), e.__doc__, e.message
 
     # Prepare list that will be used to build the Data Table.
     def th_data_table_init(self, year_btn):
         # Ref the index of year button pressed.
         year_index = list(reversed(self.th_years_stack.children)).index(year_btn)
 
-        data_set = sorted([(v[year_index], k) for k, v in self.md_index_creation.cim.items()],
+        data_set = sorted([(v[year_index], k) for k, v in self.md_index_creation.cim.iteritems()],
                           key=operator.itemgetter(1))
 
         # Build the data table using the generated data_set.
@@ -2172,7 +2165,7 @@ class Saver(Button):
 
         # Something really unexpected just happened.
         except Exception as e:
-            print("def save(self, path, fn):", type(e), e.__doc__, e.message)
+            print "def save(self, path, fn):", type(e), e.__doc__, e.message
 
         self.dismiss_popup()
 
@@ -2228,14 +2221,14 @@ class MainWindow(BoxLayout):
             t_link = start_url + topics + end_url
 
             # Define World Bank connections (JSON data).
-            file_countries = urllib.request.urlopen(c_link, timeout=60)
-            file_topics = urllib.request.urlopen(t_link, timeout=60)
-            file_wdi = urllib.request.urlopen(wdi_url, timeout=60)
+            file_countries = urllib2.urlopen(c_link, timeout=60)
+            file_topics = urllib2.urlopen(t_link, timeout=60)
+            file_wdi = urllib2.urlopen(wdi_url, timeout=60)
 
             # Convert JSON data into temp python structures.
-            countries_py = json.loads(file_countries.read().decode('utf-8'))
-            topics_py = json.loads(file_topics.read().decode('utf-8'))
-            wdi_py = json.loads(file_wdi.read().decode('utf-8'))
+            countries_py = json.load(file_countries)
+            topics_py = json.load(file_topics)
+            wdi_py = json.load(file_wdi)
 
             # Zip python structures into a single DB list.
             countries_zip = [[]]
@@ -2318,7 +2311,7 @@ class MainWindow(BoxLayout):
 
             # Something really unexpected just happened.
             except Exception as e:
-                print("def core_build(self, *args):", type(e), e.__doc__, e.message)
+                print "def core_build(self, *args):", type(e), e.__doc__, e.message
 
         self.processing = False
 
@@ -2335,7 +2328,7 @@ class MainWindow(BoxLayout):
 
             # Try to open the json DB file.
             try:
-                stored_coredb = open("./DB/core.db", "r", encoding="utf-8")
+                stored_coredb = open("./DB/core.db", "r")
                 py_coredb = json.load(stored_coredb)
                 stored_coredb.close()
 
@@ -2347,7 +2340,7 @@ class MainWindow(BoxLayout):
 
             # Something really unexpected just happened.
             except Exception as e:
-                print("def check(self, *args):", type(e), e.__doc__, e.message)
+                print "def check(self, *args):", type(e), e.__doc__, e.message
 
             time.sleep(2)
 
@@ -2369,7 +2362,7 @@ class CIMgui(App):
     # This function returns the window.
     def build(self):
         self.use_kivy_settings = False
-        #self.load_kv('CIMgui.kv')
+        self.load_kv('CIMgui.kv')
         return MainWindow()
 
 # Must be called from main.
